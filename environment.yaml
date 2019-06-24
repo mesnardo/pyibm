@@ -1,0 +1,10 @@
+name: py36-pyibm
+channels:
+  - defaults
+dependencies:
+  - h5py=2.9.0
+  - matplotlib=3.0.2
+  - numpy=1.16.2
+  - python=3.6.8
+  - pyyaml=3.13
+  - scipy=1.2.1
