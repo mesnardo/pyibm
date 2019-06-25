@@ -1,64 +1,104 @@
 """Module with implementation of the operators."""
 
+from collections.abc import Iterable
 import numpy
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, csr_matrix
 
 from .delta import delta, delta_roma_et_al_1999
 
 
-def assemble_G_hat(gridc, gridx, gridy, gridz=None):
+def set_row(row, cols, data, A):
+    """Set entries in COO matrix."""
+    if not isinstance(cols, Iterable):
+        cols, data = [cols], [data]
+    A.row = numpy.append(A.row, [row for _ in range(len(cols))])
+    A.col = numpy.append(A.col, cols)
+    A.data = numpy.append(A.data, data)
+    return
+
+
+def assemble_GHat(gridc, gridx, gridy, gridz=None):
     """Assemble the gradient operator."""
+    ndim = gridc.ndim
     size = gridx.size + gridy.size
-    if gridc.ndim == 3:
+    if ndim == 3:
         assert gridz is not None, 'Missing gridz'
         size += gridz.size
-    G = numpy.zeros((size, gridc.size))
+    GHat = coo_matrix((size, gridc.size))
     row, offset = 0, 0
-    widths = gridc.x.get_widths()
+    dx = gridx.x.get_widths()
     for _ in range(gridx.size):
         try:
             i, j, k = gridx.ijk(row - offset)
         except:
             (i, j), k = gridx.ijk(row - offset), None
-        print(k, j, i)
-        G[row, gridc.idx(i, j, k)] = -1.0 / widths[i]
-        G[row, gridc.idx(i + 1, j, k)] = -1.0 / widths[i + 1]
+        Iw, Ie = gridc.idx(i, j, k), gridc.idx(i + 1, j, k)
+        c = 1 / dx[i]
+        set_row(row, [Iw, Ie], [-c, c], GHat)
         row += 1
     offset += gridx.size
+    dy = gridy.y.get_widths()
     for _ in range(gridy.size):
         try:
             i, j, k = gridy.ijk(row - offset)
         except:
             (i, j), k = gridy.ijk(row - offset), None
-        G[row, gridc.idx(i, j, k)] = -1.0 / widths[j]
-        G[row, gridc.idx(i, j + 1, k)] = -1.0 / widths[j + 1]
+        Is, In = gridc.idx(i, j, k), gridc.idx(i, j + 1, k)
+        c = 1 / dy[j]
+        set_row(row, [Is, In], [-c, c], GHat)
         row += 1
-    if gridc.ndim == 3:
+    if ndim == 3:
         offset += gridy.size
+        dz = gridz.z.get_widths()
         for _ in range(gridz.size):
             i, j, k = gridz.ijk(row - offset)
-            G[row, gridc.idx(i, j, k)] = -1.0 / widths[k]
-            G[row, gridc.idx(i, j, k + 1)] = -1.0 / widths[k + 1]
+            Id, Iu = gridc.idx(i, j, k), gridc.idx(i, j, k + 1)
+            c = 1 / dz[k]
+            set_row(row, [Id, Iu], [-c, c], GHat)
             row += 1
-    return coo_matrix(G)
+    return GHat.tocsr()
 
 
-def assemble_Dhat(gridc, gridx, gridy):
-    """Assemble the divergence operator."""
-    D = numpy.zeros((gridc.size, gridx.size + gridy.size))
-    dx, dy = gridc.dx, gridc.dy
-    offset = gridx.size
+def assemble_DHat(gridc, gridx, gridy, gridz=None):
+    """Assemble the gradient operator."""
+    ndim = gridc.ndim
+    size = gridx.size + gridy.size
+    if ndim == 3:
+        assert gridz is not None, 'Missing gridz'
+        size += gridz.size
+    DHat = coo_matrix((gridc.size, size))
+    offset = 0
+    dy = gridx.y.get_widths()
+    dz = ([1.0] if ndim == 2 else gridx.z.get_widths())
     for row in range(gridc.size):
-        i, j = gridc.ij(row)
-        if i > 0:
-            D[row, gridx.idx(i - 1, j)] = -dy
-        if i < gridc.nx - 1:
-            D[row, gridx.idx(i, j)] = dy
-        if j > 0:
-            D[row, gridy.idx(i, j - 1) + offset] = -dx
-        if j < gridc.ny - 1:
-            D[row, gridy.idx(i, j) + offset] = dx
-    return coo_matrix(D)
+        try:
+            i, j, k = gridc.ijk(row)
+        except:
+            (i, j), k = gridc.ijk(row), None
+        Iw, Ie = gridx.idx(i - 1, j, k), gridx.idx(i, j, k)
+        c = dy[j] * dz[k]
+        set_row(row, [Iw + offset, Ie + offset], [-c, c], DHat)
+    offset += gridx.size
+    dx = gridy.x.get_widths()
+    dz = ([1.0] if gridy.ndim == 2 else gridy.z.get_widths())
+    for row in range(gridc.size):
+        try:
+            i, j, k = gridc.ijk(row)
+        except:
+            (i, j), k = gridc.ijk(row), None
+        Is, In = gridy.idx(i, j - 1, k), gridy.idx(i, j, k)
+        c = dx[i] * dz[k]
+        set_row(row, [Is + offset, In + offset], [-c, c], DHat)
+    if ndim == 3:
+        offset += gridy.size
+        dx = gridz.x.get_widths()
+        dy = gridz.y.get_widths()
+        for row in range(gridc.size):
+            i, j, k = gridc.ijk(row)
+            Id, Iu = gridz.idx(i, j, k - 1), gridz.idx(i, j, k)
+            c = dx[i] * dy[j]
+            set_row(row, [Id + offset, Iu + offset], [-c, c], DHat)
+    return DHat.tocsr()
 
 
 def assemble_L(gridx, gridy):
@@ -110,36 +150,93 @@ def assemble_BN(gridx, gridy, dt, N=1, L=None, Minv=None):
         return coo_matrix(Bn)
 
 
-def assemble_R(gridx, gridy):
+def assemble_R(gridx, gridy, gridz=None):
     """Assemble diagonal operator R."""
-    Rx = gridx.dy * numpy.ones(gridx.size)
-    Ry = gridy.dx * numpy.ones(gridy.size)
-    R = numpy.diag(numpy.concatenate((Rx, Ry)))
-    return coo_matrix(R)
+    ndim = gridx.ndim
+    size = gridx.size + gridy.size
+    if ndim == 3:
+        assert gridz is not None, 'Missing gridz'
+        size += gridz.size
+    R = coo_matrix((size, size))
+    row, offset = 0, 0
+    dy = gridx.y.get_widths()
+    dz = ([1.0] if ndim == 2 else gridx.z.get_widths())
+    for _ in range(gridx.size):
+        try:
+            i, j, k = gridx.ijk(row - offset)
+        except:
+            (i, j), k = gridx.ijk(row - offset), 1
+        set_row(row, row, dy[j] * dz[k], R)
+        row += 1
+    offset += gridx.size
+    dx = gridy.x.get_widths()
+    dz = ([1.0] if ndim == 2 else gridy.z.get_widths())
+    for _ in range(gridy.size):
+        try:
+            i, j, k = gridy.ijk(row - offset)
+        except:
+            (i, j), k = gridy.ijk(row - offset), 1
+        set_row(row, row, dx[i] * dz[k], R)
+        row += 1
+    if ndim == 3:
+        offset += gridy.size
+        dx = gridz.x.get_widths()
+        dy = gridz.y.get_widths()
+        for _ in range(gridz.size):
+            i, j, k = gridx.ijk(row - offset)
+            set_row(row, row, dx[i] * dy[j], R)
+            row += 1
+    return R.tocsr()
 
 
-def assemble_Rinv(gridx, gridy):
-    """Assemble diagonal operator Rinv."""
-    Rinvx = 1 / gridx.dy * numpy.ones(gridx.size)
-    Rinvy = 1 / gridy.dx * numpy.ones(gridy.size)
-    Rinv = numpy.diag(numpy.concatenate((Rinvx, Rinvy)))
-    return coo_matrix(Rinv)
+def assemble_RInv(R):
+    """Assemble diagonal operator RInv."""
+    RInv = csr_matrix(R, copy=True)
+    RInv.data = numpy.array([1 / d for d in R.data])
+    return RInv
 
 
-def assemble_Mhat(gridx, gridy):
-    """Assemble diagonal operator Mhat."""
-    Mhatx = gridx.dx * numpy.ones(gridx.size)
-    Mhaty = gridy.dy * numpy.ones(gridy.size)
-    Mhat = numpy.diag(numpy.concatenate((Mhatx, Mhaty)))
-    return coo_matrix(Mhat)
+def assemble_MHat(gridx, gridy, gridz=None):
+    """Assemble diagonal operator MHat."""
+    ndim = gridx.ndim
+    size = gridx.size + gridy.size
+    if ndim == 3:
+        assert gridz is not None, 'Missing gridz'
+        size += gridz.size
+    MHat = coo_matrix((size, size))
+    row, offset = 0, 0
+    dx = gridx.x.get_widths()
+    for _ in range(gridx.size):
+        try:
+            i, j, k = gridx.ijk(row - offset)
+        except:
+            (i, j), k = gridx.ijk(row - offset), 1
+        set_row(row, row, dx[i], MHat)
+        row += 1
+    offset += gridx.size
+    dy = gridy.y.get_widths()
+    for _ in range(gridy.size):
+        try:
+            i, j, k = gridy.ijk(row - offset)
+        except:
+            (i, j), k = gridy.ijk(row - offset), 1
+        set_row(row, row, dy[j], MHat)
+        row += 1
+    if ndim == 3:
+        offset += gridy.size
+        dz = gridz.z.get_widths()
+        for _ in range(gridz.size):
+            i, j, k = gridz.ijk(row - offset)
+            set_row(row, row, dz[k], MHat)
+            row += 1
+    return MHat.tocsr()
 
 
-def assemble_Mhatinv(gridx, gridy):
-    """Assemble diagonal operator Mhatinv."""
-    Mhatinvx = gridx.dx * numpy.ones(gridx.size)
-    Mhatinvy = gridy.dy * numpy.ones(gridy.size)
-    Mhatinv = numpy.diag(numpy.concatenate((Mhatinvx, Mhatinvy)))
-    return coo_matrix(Mhatinv)
+def assemble_MHatInv(MHat):
+    """Assemble diagonal operator MHatInv."""
+    MHatInv = csr_matrix(MHat, copy=True)
+    MHatInv.data = numpy.array([1 / d for d in MHat.data])
+    return MHatInv
 
 
 def assemble_delta(gridx, gridy, body, kernel=delta_roma_et_al_1999):

@@ -62,19 +62,16 @@ class GridBase(object):
 
     def idx(self, i, j, k=0):
         """Return the index given directional indices."""
-        lda = self.shape[-1]
-        if self.ndim == 3:
-            return k * (lda * self.shape[-2]) + j * lda + i
-        return j * lda + i
+        (ny, nx) = self.shape[-2:]
+        return k * (ny * nx) + j * nx + i
 
     def ijk(self, I):
         """Return the directional indices."""
-        lda = self.shape[-1]
-        i, j = I % lda, I // lda
-        if self.ndim == 3:
-            k = I // (lda * self.shape[-2])
-            return i, j, k
-        return i, j
+        ny, nx = self.shape[-2:]
+        if self.ndim == 2:
+            return I % nx, I // nx
+        lda = ny * nx
+        return I % nx, (I % lda) // nx, I // lda
 
 
 class GridCellCentered(GridBase):
@@ -232,7 +229,7 @@ class GridLine():
     def get_widths(self):
         """Compute the grid spacing."""
         ghosted = numpy.concatenate(([self.start], self.vertices, [self.end]))
-        return 0.5 * (ghosted[1:] - ghosted[:-1])
+        return 0.5 * (ghosted[2:] - ghosted[:-2])
 
 
 class Segment():
