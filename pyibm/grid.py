@@ -15,6 +15,7 @@ class GridBase(object):
         self.size = 0
         self.ndim = 0
         self.shape = ()
+        self.M, self.N, self.P = 0, 0, 0
         if grid is not None:
             self.create_from_grid(grid)
         elif config is not None:
@@ -43,18 +44,14 @@ class GridBase(object):
             Configuration of the grid.
 
         """
-        lines = {}
-        for direction, node in config.items():
-            assert direction in ['x', 'y', 'z']
-            lines[direction] = GridLine(config=node)
-        shape = []
-        for direction in ['z', 'y', 'x']:
-            if direction in lines.keys():
+        for d in ['z', 'y', 'x']:
+            if d in config.keys():
                 self.ndim += 1
-                shape.append(lines[direction].size)
-                setattr(self, direction, lines[direction])
-        self.shape = tuple(shape)
+                setattr(self, d, GridLine(config=config[d]))
+                self.shape += (getattr(self, d).size,)
         self.size = functools.reduce(operator.mul, self.shape, 1)
+        self.N, self.M = self.shape[-2:]
+        self.P = (0 if self.ndim == 2 else self.shape[-3])
 
     def create_from_grid(self, grid):
         """Create a grid from a base grid."""
@@ -69,7 +66,7 @@ class GridBase(object):
         """Return the directional indices."""
         ny, nx = self.shape[-2:]
         if self.ndim == 2:
-            return I % nx, I // nx
+            return I % nx, I // nx, 0
         lda = ny * nx
         return I % nx, (I % lda) // nx, I // lda
 
@@ -83,6 +80,10 @@ class GridCellCentered(GridBase):
 
     def create_from_grid(self, grid):
         """Create grid from a base grid."""
+        self.ndim = grid.ndim
+        self.M, self.N, self.P = grid.M - 1, grid.N - 1, max(grid.P - 1, 0)
+        self.shape = (self.P, self.N, self.M)[-self.ndim:]
+        self.size = functools.reduce(operator.mul, self.shape, 1)
         for direction in ['x', 'y', 'z'][:grid.ndim]:
             gridline = getattr(grid, direction)
             start, end = gridline.start, gridline.end
@@ -90,9 +91,6 @@ class GridCellCentered(GridBase):
             vertices = 0.5 * (vertices[:-1] + vertices[1:])
             setattr(self, direction, GridLine(start=start, end=end,
                                               vertices=vertices))
-        self.shape = tuple(n - 1 for n in grid.shape)
-        self.size = functools.reduce(operator.mul, self.shape, 1)
-        self.ndim = grid.ndim
 
 
 class GridFaceX(GridBase):
@@ -104,6 +102,10 @@ class GridFaceX(GridBase):
 
     def create_from_grid(self, grid):
         """Create grid from a base grid."""
+        self.ndim = grid.ndim
+        self.M, self.N, self.P = grid.M - 2, grid.N - 1, max(grid.P - 1, 0)
+        self.shape = (self.P, self.N, self.M)[-self.ndim:]
+        self.size = functools.reduce(operator.mul, self.shape, 1)
         for direction in ['x', 'y', 'z'][:grid.ndim]:
             gridline = getattr(grid, direction)
             start, end = gridline.start, gridline.end
@@ -114,10 +116,6 @@ class GridFaceX(GridBase):
                 vertices = 0.5 * (vertices[:-1] + vertices[1:])
             setattr(self, direction, GridLine(start=start, end=end,
                                               vertices=vertices))
-        self.shape = tuple(line.size for line in [self.z, self.y, self.x]
-                           if line.size > 0)
-        self.size = functools.reduce(operator.mul, self.shape, 1)
-        self.ndim = grid.ndim
 
 
 class GridFaceY(GridBase):
@@ -129,6 +127,10 @@ class GridFaceY(GridBase):
 
     def create_from_grid(self, grid):
         """Create grid from a base grid."""
+        self.ndim = grid.ndim
+        self.M, self.N, self.P = grid.M - 1, grid.N - 2, max(grid.P - 1, 0)
+        self.shape = (self.P, self.N, self.M)[-self.ndim:]
+        self.size = functools.reduce(operator.mul, self.shape, 1)
         for direction in ['x', 'y', 'z'][:grid.ndim]:
             gridline = getattr(grid, direction)
             start, end = gridline.start, gridline.end
@@ -139,10 +141,6 @@ class GridFaceY(GridBase):
                 vertices = 0.5 * (vertices[:-1] + vertices[1:])
             setattr(self, direction, GridLine(start=start, end=end,
                                               vertices=vertices))
-        self.shape = tuple(line.size for line in [self.z, self.y, self.x]
-                           if line.size > 0)
-        self.size = functools.reduce(operator.mul, self.shape, 1)
-        self.ndim = grid.ndim
 
 
 class GridFaceZ(GridBase):
@@ -154,6 +152,10 @@ class GridFaceZ(GridBase):
 
     def create_from_grid(self, grid):
         """Create grid from a base grid."""
+        self.ndim = grid.ndim
+        self.M, self.N, self.P = grid.M - 1, grid.N - 1, grid.P - 2
+        self.shape = (self.P, self.N, self.M)
+        self.size = functools.reduce(operator.mul, self.shape, 1)
         for direction in ['x', 'y', 'z']:
             gridline = getattr(grid, direction)
             start, end = gridline.start, gridline.end
@@ -164,10 +166,6 @@ class GridFaceZ(GridBase):
                 vertices = 0.5 * (vertices[:-1] + vertices[1:])
             setattr(self, direction, GridLine(start=start, end=end,
                                               vertices=vertices))
-        self.shape = tuple(line.size for line in [self.z, self.y, self.x]
-                           if line.size > 0)
-        self.size = functools.reduce(operator.mul, self.shape, 1)
-        self.ndim = grid.ndim
 
 
 class GridLine():
