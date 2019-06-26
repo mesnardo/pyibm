@@ -5,6 +5,7 @@ import numpy
 from scipy.sparse import coo_matrix, csr_matrix
 
 from .delta import delta, delta_roma_et_al_1999
+from .grid import GridBase
 
 
 def set_row(row, cols, data, A):
@@ -17,7 +18,7 @@ def set_row(row, cols, data, A):
     return
 
 
-def assemble_GHat(gridc, gridx, gridy, gridz=None):
+def assemble_GHat(gridc, gridx, gridy, gridz=GridBase()):
     """Assemble the gradient operator GHat for a staggered grid.
 
     Parameters
@@ -29,7 +30,7 @@ def assemble_GHat(gridc, gridx, gridy, gridz=None):
     gridy : pyibm.GridFaceY
         Grid at Y faces.
     gridz : pyibm.GridFaceZ (optional)
-        Grid at Z faces (for 3D cases); default: None.
+        Grid at Z faces (for 3D cases); default: GridBase().
 
     Returns
     -------
@@ -39,10 +40,7 @@ def assemble_GHat(gridc, gridx, gridy, gridz=None):
     """
     # Initialize empty sparse matrix in COO format.
     ndim = gridc.ndim
-    size = gridx.size + gridy.size
-    if ndim == 3:
-        assert gridz is not None, 'Missing gridz'
-        size += gridz.size
+    size = gridx.size + gridy.size + gridz.size
     GHat = coo_matrix((size, gridc.size))
     # Assemble rows for GridFaceX points.
     row, offset = 0, 0  # row index and offset index
@@ -85,7 +83,7 @@ def assemble_GHat(gridc, gridx, gridy, gridz=None):
     return GHat.tocsr()
 
 
-def assemble_DHat(gridc, gridx, gridy, gridz=None):
+def assemble_DHat(gridc, gridx, gridy, gridz=GridBase()):
     """Assemble the divergence operator DHat for a staggered grid.
 
     Parameters
@@ -97,7 +95,7 @@ def assemble_DHat(gridc, gridx, gridy, gridz=None):
     gridy : pyibm.GridFaceY
         Grid at Y faces.
     gridz : pyibm.GridFaceZ (optional)
-        Grid at Z faces (for 3D cases); default: None.
+        Grid at Z faces (for 3D cases); default: GridBase().
 
     Returns
     -------
@@ -107,10 +105,7 @@ def assemble_DHat(gridc, gridx, gridy, gridz=None):
     """
     # Initialize empty sparse matrix in COO format.
     ndim = gridc.ndim
-    size = gridx.size + gridy.size
-    if ndim == 3:
-        assert gridz is not None, 'Missing gridz'
-        size += gridz.size
+    size = gridx.size + gridy.size + gridz.size
     DHat = coo_matrix((gridc.size, size))
     # Assemble columns for GridFaceX points.
     offset = 0  # column offset index
@@ -162,56 +157,84 @@ def assemble_DHat(gridc, gridx, gridy, gridz=None):
     return DHat.tocsr()
 
 
-def assemble_L(gridx, gridy):
+def assemble_L(gridx, gridy, gridz=GridBase()):
     """Assemble Laplacian operator."""
-    L = numpy.zeros((gridx.size + gridy.size, gridx.size + gridy.size))
-    dx, dy = gridx.dx, gridx.dy
-    for row in range(gridx.size):
-        i, j = gridx.ij(row)
-        if i > 0:
-            L[row, gridx.idx(i - 1, j)] = 1 / dx**2
-        L[row, row] += -2 / dx**2
-        if i < gridx.nx - 1:
-            L[row, gridx.idx(i + 1, j)] = 1 / dx**2
-        if j > 0:
-            L[row, gridx.idx(i, j - 1)] = 1 / dy**2
-        L[row, row] += -2 / dy**2
-        if j < gridx.ny - 1:
-            L[row, gridx.idx(i, j + 1)] = 1 / dy**2
-    offset = gridx.size
-    for row in range(offset, gridy.size + offset):
-        i, j = gridy.ij(row - offset)
-        if i > 0:
-            L[row, gridy.idx(i - 1, j) + offset] = 1 / dx**2
-        L[row, row] += -2 / dx**2
-        if i < gridy.nx - 1:
-            L[row, gridy.idx(i + 1, j) + offset] = 1 / dx**2
-        if j > 0:
-            L[row, gridy.idx(i, j - 1) + offset] = 1 / dy**2
-        L[row, row] += -2 / dy**2
-        if j < gridy.ny - 1:
-            L[row, gridy.idx(i, j + 1) + offset] = 1 / dy**2
-    return coo_matrix(L)
+    ndim = gridx.ndim
+    size = gridx.size + gridy.size + gridz.size
+    L = coo_matrix((size, size))
+    offset = 0
+    for grid in ([gridx, gridy, gridz][:ndim]):
+        dx, dy = grid.x.get_widths(), grid.y.get_widths()
+        dz = [1.0] if ndim == 2 else grid.z.get_widths()
+        for I in range(grid.size):
+            cols, vals = [], []
+            i, j, k = grid.ijk(I)
+
+            Iw, Ie = grid.idx(i - 1, j, k), grid.idx(i + 1, j, k)
+            Is, In = grid.idx(i, j - 1, k), grid.idx(i, j + 1, k)
+
+            dx_w = dx[i] if i == 0 else dx[i - 1]
+            dx_e = dx[i] if i == grid.M - 1 else dx[i + 1]
+            dy_s = dy[j] if j == 0 else dy[j - 1]
+            dy_n = dy[j] if j == grid.N - 1 else dy[j + 1]
+
+            Cw = 2 / dx[i] / (dx[i] + dx_w)
+            Ce = 2 / dx[i] / (dx[i] + dx_e)
+            Cs = 2 / dy[j] / (dy[j] + dy_s)
+            Cn = 2 / dy[j] / (dy[j] + dy_n)
+
+            if i > 0:
+                cols.append(Iw)
+                vals.append(Cw)
+            if i < grid.M - 1:
+                cols.append(Ie)
+                vals.append(Ce)
+            if j > 0:
+                cols.append(Is)
+                vals.append(Cs)
+            if j < grid.N - 1:
+                cols.append(In)
+                vals.append(Cn)
+            C = - (Cw + Ce + Cs + Cn)
+            if ndim == 3:
+                Ib, If = grid.idx(i, j, k - 1), grid.idx(i, j, k + 1)
+                dz_b = dz[k] if k == 0 else dz[k - 1]
+                dz_f = dz[k] if k == grid.P - 1 else dz[k + 1]
+                Cb = 2 / dz[k] / (dz[k] + dz_b)
+                Cf = 2 / dz[k] / (dz[k] + dz_f)
+                if k > 0:
+                    cols.append(Ib)
+                    vals.append(Cb)
+                if k < grid.P - 1:
+                    cols.append(If)
+                    vals.append(Cf)
+                C += - (Cb + Cf)
+            cols.append(I)
+            vals.append(C)
+            set_row(I + offset, [c + offset for c in cols], vals, L)
+        offset += grid.size
+    return csr_matrix(L)
 
 
-def assemble_BN(gridx, gridy, dt, N=1, L=None, Minv=None):
+def assemble_BN(gridx, gridy, gridz=GridBase(),
+                dt=1.0, N=1, L=None, MInv=None):
     """Assemble diagonal operator BN."""
     assert N >= 1, "N should >= 1"
-    I = numpy.diag(numpy.ones(gridx.size + gridy.size))
+    I = numpy.diag(numpy.ones(gridx.size + gridy.size + gridz.size))
     Bn = dt * I
     if N == 1:
-        return coo_matrix(Bn)
+        return csr_matrix(Bn)
     else:
         assert L is not None, "Missing L"
-        assert Minv is not None, "Missing Minv"
+        assert MInv is not None, "Missing MInv"
         P = I.copy()
         for k in range(2, N + 1):
-            P = P @ Minv @ L
-            Bn += dt**k / 2**(k - 1) * P @ Minv
-        return coo_matrix(Bn)
+            P = P @ MInv @ L
+            Bn += dt**k / 2**(k - 1) * P @ MInv
+        return csr_matrix(Bn)
 
 
-def assemble_R(gridx, gridy, gridz=None):
+def assemble_R(gridx, gridy, gridz=GridBase()):
     """Assemble the diagonal sparse matrix R in CSR format.
 
     Parameters
@@ -221,7 +244,7 @@ def assemble_R(gridx, gridy, gridz=None):
     gridy : pyibm.GridFaceY
         Grid at Y faces.
     gridz : pyibm.GridFaceZ (optional)
-        Grid at Z faces (for 3D cases); default: None.
+        Grid at Z faces (for 3D cases); default: GridBase().
 
     Returns
     -------
@@ -231,10 +254,7 @@ def assemble_R(gridx, gridy, gridz=None):
     """
     # Initialize sparse matrix in COO format.
     ndim = gridx.ndim
-    size = gridx.size + gridy.size
-    if ndim == 3:
-        assert gridz is not None, 'Missing gridz'
-        size += gridz.size
+    size = gridx.size + gridy.size + gridz.size
     R = coo_matrix((size, size))
     # Assemble rows for GridFaceX points.
     dy = gridx.y.get_widths()
@@ -286,7 +306,7 @@ def assemble_RInv(R):
     return RInv
 
 
-def assemble_MHat(gridx, gridy, gridz=None):
+def assemble_MHat(gridx, gridy, gridz=GridBase()):
     """Assemble the diagonal sparse matrix MHat in CSR format.
 
     Parameters
@@ -296,7 +316,7 @@ def assemble_MHat(gridx, gridy, gridz=None):
     gridy : pyibm.GridFaceY
         Grid at Y faces.
     gridz : pyibm.GridFaceZ (optional)
-        Grid at Z faces (for 3D cases); default: None.
+        Grid at Z faces (for 3D cases); default: GridBase().
 
     Returns
     -------
@@ -306,10 +326,7 @@ def assemble_MHat(gridx, gridy, gridz=None):
     """
     # Initialize sparse matrix in COO format.
     ndim = gridx.ndim
-    size = gridx.size + gridy.size
-    if ndim == 3:
-        assert gridz is not None, 'Missing gridz'
-        size += gridz.size
+    size = gridx.size + gridy.size + gridz.size
     MHat = coo_matrix((size, size))
     # Assemble rows for GridFaceX points.
     dx = gridx.x.get_widths()
@@ -358,32 +375,62 @@ def assemble_MHatInv(MHat):
     return MHatInv
 
 
-def assemble_delta(gridx, gridy, body, kernel=delta_roma_et_al_1999):
-    """Assemble delta operator."""
-    M, N = body.ndim * body.size, gridx.size + gridy.size
-    Op = numpy.zeros((M, N))
-    X, Y = body.x, body.y
-    x, y = gridx.x, gridx.y
-    for k in range(body.size):
-        row = body.ndim * k
-        for col in range(gridx.size):
-            i, j = col % gridx.nx, col // gridx.nx
-            dist = [abs(x[i] - X[k]), abs(y[j] - Y[k])]
-            val = delta(dist, gridx.dx, kernel=kernel)
-            Op[row, col] = (val > 1e-6) * val
-    offset = gridx.size
-    x, y = gridy.x, gridy.y
-    for k in range(body.size):
-        row = body.ndim * k + 1
-        for col in range(gridy.size):
-            i, j = col % gridy.nx, col // gridy.nx
-            dist = [abs(x[i] - X[k]), abs(y[j] - Y[k])]
-            val = delta(dist, gridy.dy, kernel=kernel)
-            Op[row, col + offset] = (val > 1e-6) * val
-    return coo_matrix(Op)
+def assemble_delta(body, gridc, gridx, gridy, gridz=GridBase(),
+                   kernel=delta_roma_et_al_1999, kernel_size=2):
+    """Assemble the delta sparse matrix in CSR format."""
+    # Initialize sparse matrix in COO format.
+    ndim = body.ndim
+    size = gridx.size + gridy.size + gridz.size
+    Op = coo_matrix((ndim * body.size, size))
+    X, Y, Z = body.x, body.y, body.z
+    # Get cell widths in the uniform region.
+    i, j, k = gridc.ijk(body.neighbors[0])
+    dx, dy = gridc.x.get_widths()[i], gridc.y.get_widths()[j]
+    # Assemble rows.
+    ks = kernel_size  # use nickname
+    if ndim == 2:
+        offset = 0
+        dr = [dx, dy]
+        for dof, grid in enumerate([gridx, gridy]):
+            x, y = grid.x.vertices, grid.y.vertices
+            for l in range(body.size):
+                row = body.ndim * l + dof  # row index
+                i, j, k = gridc.ijk(body.neighbors[l])
+                for jj in range(j - ks, j + ks + 1):
+                    ry = abs(Y[l] - y[jj])
+                    for ii in range(i - ks, i + ks + 1):
+                        rx = abs(X[l] - x[ii])
+                        r = [rx, ry]
+                        val = delta(r, dr, kernel=kernel)
+                        col = grid.idx(ii, jj, k) + offset
+                        set_row(row, col, val, Op)
+            offset += grid.size
+    elif ndim == 3:
+        offset = 0
+        dz = gridc.z.get_widths()[k]
+        dr = [dx, dy, dz]
+        for dof, grid in enumerate([gridx, gridy, gridz]):
+            x, y, z = grid.x.vertices, grid.y.vertices, grid.z.vertices
+            for l in range(body.size):
+                row = body.ndim * l + dof  # row index
+                i, j, k = gridc.ijk(body.neighbors[l])
+                for kk in range(k - ks, k + ks + 1):
+                    rz = abs(Z[l] - z[kk])
+                    for jj in range(j - ks, j + ks + 1):
+                        ry = abs(Y[l] - y[jj])
+                        for ii in range(i - ks, i + ks + 1):
+                            rx = abs(X[l] - x[ii])
+                            r = [rx, ry, rz]
+                            val = delta(r, dr, kernel=kernel)
+                            col = grid.idx(ii, jj, kk) + offset
+                            set_row(row, col, val, Op)
+            offset += grid.size
+    # Return sparse matrix in CSR format.
+    Op.eliminate_zeros()
+    return Op.tocsr()
 
 
 def assemble_surfaces(body):
     """Assemble operator with surface areas."""
     S = numpy.diag(body.ds * numpy.ones(body.ndim * body.size))
-    return coo_matrix(S)
+    return csr_matrix(S)

@@ -65,7 +65,7 @@ def delta(r, dr, kernel=delta_roma_et_al_1999):
     ----------
     r : float or list of floats
         Directional distance between the source and target.
-    dr : float
+    dr : float or list of floats
         Grid-spacing of the underlying Cartesian mesh.
     kernel : function (optional)
         The regularized delta function to use;
@@ -79,5 +79,5 @@ def delta(r, dr, kernel=delta_roma_et_al_1999):
     """
     if hasattr(r, '__len__'):
         return functools.reduce(lambda x, y: x * y,
-                                [kernel(ri, dr) for ri in r])
+                                [kernel(ri, dri) for ri, dri in zip(r, dr)])
     return kernel(r, dr)
