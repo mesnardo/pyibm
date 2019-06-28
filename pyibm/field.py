@@ -4,6 +4,7 @@ import numpy
 
 from .grid import GridBase
 
+
 class EulerianField(object):
     """Eulerian field variable."""
 
