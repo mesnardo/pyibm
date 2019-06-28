@@ -157,8 +157,8 @@ def assemble_DHat(gridc, gridx, gridy, gridz=GridBase()):
     return DHat.tocsr()
 
 
-def assemble_L(gridx, gridy, gridz=GridBase()):
-    """Assemble Laplacian operator."""
+def assemble_LHat(gridx, gridy, gridz=GridBase()):
+    """Assemble Laplacian operator LHat."""
     ndim = gridx.ndim
     size = gridx.size + gridy.size + gridz.size
     L = coo_matrix((size, size))
@@ -219,7 +219,7 @@ def assemble_L(gridx, gridy, gridz=GridBase()):
 def assemble_BN(gridx, gridy, gridz=GridBase(),
                 dt=1.0, N=1, L=None, MInv=None):
     """Assemble diagonal operator BN."""
-    assert N >= 1, "N should >= 1"
+    assert N >= 1, "N should be >= 1"
     I = numpy.diag(numpy.ones(gridx.size + gridy.size + gridz.size))
     Bn = dt * I
     if N == 1:

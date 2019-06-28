@@ -44,11 +44,7 @@ def delta_peskin_2002(r, dr):
 
     """
     x = r / dr
-    if -2.0 <= x <= -1.0:
-        return (5 + 2 * x - math.sqrt(-7 - 12 * x - 4 * x**2)) / (8 * dr)
-    elif -1.0 <= x <= 0.0:
-        return (3 + 2 * x + math.sqrt(1 - 4 * x - 4 * x**2)) / (8 * dr)
-    elif 0.0 <= x <= 1.0:
+    if 0.0 <= x <= 1.0:
         return (3 - 2 * x + math.sqrt(1 + 4 * x - 4 * x**2)) / (8 * dr)
     elif 1.0 <= x <= 2.0:
         return (5 - 2 * x - math.sqrt(-7 + 12 * x - 4 * x**2)) / (8 * dr)
