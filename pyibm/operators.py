@@ -2,7 +2,8 @@
 
 from collections.abc import Iterable
 import numpy
-from scipy.sparse import coo_matrix, csr_matrix
+from scipy.sparse import coo_matrix, csc_matrix, csr_matrix, identity
+from scipy.sparse.linalg import inv
 
 from .delta import delta, delta_roma_et_al_1999
 from .grid import GridBase
@@ -217,17 +218,18 @@ def assemble_LHat(gridx, gridy, gridz=GridBase()):
 
 
 def assemble_BN(gridx, gridy, gridz=GridBase(),
-                dt=1.0, N=1, L=None, MInv=None):
+                dt=1.0, N=1, L=None, M=None):
     """Assemble diagonal operator BN."""
     assert N >= 1, "N should be >= 1"
-    I = numpy.diag(numpy.ones(gridx.size + gridy.size + gridz.size))
-    Bn = dt * I
+    size = gridx.size + gridy.size + gridz.size
+    Bn = dt * identity(size)
     if N == 1:
         return csr_matrix(Bn)
     else:
         assert L is not None, "Missing L"
-        assert MInv is not None, "Missing MInv"
-        P = I.copy()
+        assert M is not None, "Missing M"
+        MInv = inv(csc_matrix(M))
+        P = identity(size)
         for k in range(2, N + 1):
             P = P @ MInv @ L
             Bn += dt**k / 2**(k - 1) * P @ MInv
@@ -287,25 +289,6 @@ def assemble_R(gridx, gridy, gridz=GridBase()):
     return R.tocsr()
 
 
-def assemble_RInv(R):
-    """Assemble diagonal sparse matrix RInv in CSR format.
-
-    Parameters
-    ----------
-    R : scipy.sparse.csr_matrix
-        The diagonal operator R.
-
-    Returns
-    -------
-    RInv : scipy.sparse.csr_matrix
-        The inverse of the diagonal operator R.
-
-    """
-    RInv = csr_matrix(R, copy=True)
-    RInv.data = numpy.array([1 / d for d in R.data])
-    return RInv
-
-
 def assemble_MHat(gridx, gridy, gridz=GridBase()):
     """Assemble the diagonal sparse matrix MHat in CSR format.
 
@@ -354,25 +337,6 @@ def assemble_MHat(gridx, gridy, gridz=GridBase()):
             set_row(I + offset, I + offset, dz[k], MHat)
     # Return sparse matrix in CSR format.
     return MHat.tocsr()
-
-
-def assemble_MHatInv(MHat):
-    """Assemble diagonal sparse matrix MHatInv in CSR format.
-
-    Parameters
-    ----------
-    MHat : scipy.sparse.csr_matrix
-        The diagonal operator MHat.
-
-    Returns
-    -------
-    MHatInv : scipy.sparse.csr_matrix
-        The inverse of the diagonal operator MHat.
-
-    """
-    MHatInv = csr_matrix(MHat, copy=True)
-    MHatInv.data = numpy.array([1 / d for d in MHat.data])
-    return MHatInv
 
 
 def assemble_delta(body, gridc, gridx, gridy, gridz=GridBase(),
@@ -432,5 +396,5 @@ def assemble_delta(body, gridc, gridx, gridy, gridz=GridBase(),
 
 def assemble_surfaces(body):
     """Assemble operator with surface areas."""
-    S = numpy.diag(body.ds * numpy.ones(body.ndim * body.size))
-    return csr_matrix(S)
+    S = body.ds * identity(body.ndim * body.size)
+    return S
