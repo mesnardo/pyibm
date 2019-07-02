@@ -1,25 +1,18 @@
 """Implementation of miscellaneous functions."""
 
-import numpy
-
-from .field import EulerianField
+import numba
 
 
-def convection(ux, uy, uz=EulerianField()):
-    """Compute the convective terms."""
-    gridx, gridy, gridz = ux.grid, uy.grid, uz.grid
-    size = gridx.size + gridy.size + gridz.size
-    conv = numpy.empty(size)
-    ndim = gridx.ndim
-    if uz is not None:
-        gridz = uz.grid
-    dx = gridx.x.get_widths()
+@numba.njit
+def _idx(i, j, k, shape):
+    ny, nx = shape[-2:]
+    return k * (ny * nx) + j * nx + i
 
-    if ndim == 2:
-        dx = gridx.x.get_widths()
-        for I in range(ux.size):
-            i, j, _ = gridx.ijk(I)
-            Iw, Ie = gridx.idx(i - 1, j), gridx.idx(i + 1, j)
-            Is, In = gridx.idx(i, j - 1), gridx.idx(i, j + 1)
-            conv[I] = 
 
+@numba.njit
+def _ijk(I, shape):
+    ny, nx = shape[-2:]
+    if len(shape) == 2:
+        return I % nx, I // nx, 0
+    lda = ny * nx
+    return I % nx, (I % lda) // nx, I // lda

@@ -285,7 +285,8 @@ class Segment():
         if abs(r - 1) < 1e-6:  # uniform discretization
             n_float = length / width
             n = int(round(n_float))
-            assert abs(n - n_float) < 1e-6, "Length should be multple of width"
+            assert (abs(n - n_float) < 1e-6,
+                    "Length should be multiple of width")
             self.vertices = numpy.linspace(start, end, num=n + 1)
         else:  # stretched discretization
             n_float = math.log(1 + length / width * (r - 1)) / math.log(r)
