@@ -15,4 +15,5 @@ class EulerianField(object):
         self.shape = grid.shape
         if grid.size > 0:
             self.bc = bc
-            self.values = ic * numpy.ones(grid.size)
+            shape = tuple(s + 2 for s in grid.shape)
+            self.values = ic * numpy.ones(shape)
