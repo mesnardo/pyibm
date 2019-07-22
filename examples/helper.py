@@ -32,7 +32,8 @@ def print_matrix_info(Op):
 
 
 def plot_matrix(M, figsize=(6.0, 6.0), axis_scaled=True,
-                markersize=1, color='red', cmap=None):
+                markersize=1, color='red', cmap=None,
+                limits=[None, None, None, None]):
     """Plot non-zero structure of an operator."""
     if not isinstance(M, coo_matrix):
         M = coo_matrix(M)
@@ -45,8 +46,12 @@ def plot_matrix(M, figsize=(6.0, 6.0), axis_scaled=True,
         fig.colorbar(sc)
     if axis_scaled:
         ax.axis('scaled', adjustable='box')
-    ax.set_xlim(0, M.shape[1] - 1)
-    ax.set_ylim(0, M.shape[0] - 1)
+    default_limits = [0, M.shape[0] - 1, 0, M.shape[1] - 1]
+    for i, lim in enumerate(limits):
+        if lim is None:
+            limits[i] = default_limits[i]
+    ax.set_xlim(limits[2:])
+    ax.set_ylim(limits[:2])
     ax.invert_yaxis()
     ax.set_xticks([])
     ax.set_yticks([])
