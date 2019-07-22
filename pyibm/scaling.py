@@ -138,22 +138,23 @@ def diagonal_inv(A):
 
 
 def assemble_BN(gridx, gridy, gridz=GridBase(),
-                dt=1.0, N=1, L=None, M=None):
+                dt=1.0, alpha=0.5, N=1, L=None, M=None):
     """Assemble diagonal operator BN."""
     assert N >= 1, "N should be >= 1"
     size = gridx.size + gridy.size + gridz.size
     Bn = dt * identity(size)
     if N == 1:
         return Bn.tocsr()
-    else:
-        assert L is not None, "Missing L"
-        assert M is not None, "Missing M"
+    assert L is not None, "Missing L"
+    if M is not None:
         MInv = diagonal_inv(M)
-        P = identity(size)
-        for k in range(2, N + 1):
-            P = P @ MInv @ L
-            Bn += dt**k / 2**(k - 1) * P @ MInv
-        return Bn.tocsr()
+    else:
+        MInv = identity(size)
+    P = identity(size)
+    for k in range(2, N + 1):
+        P = P @ MInv @ L
+        Bn += dt**k * alpha**(k - 1) * P @ MInv
+    return Bn.tocsr()
 
 
 def assemble_surfaces(body):
