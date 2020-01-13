@@ -85,12 +85,13 @@ class GridCellCentered(GridBase):
         self.shape = (self.P, self.N, self.M)[-self.ndim:]
         self.size = functools.reduce(operator.mul, self.shape, 1)
         for direction in ['x', 'y', 'z'][:grid.ndim]:
-            gridline = getattr(grid, direction)
-            start, end = gridline.start, gridline.end
-            vertices = gridline.vertices
-            vertices = 0.5 * (vertices[:-1] + vertices[1:])
+            line = getattr(grid, direction)
+            start, end = line.start, line.end
+            vertices = 0.5 * (line.vertices[:-1] + line.vertices[1:])
+            widths = line.vertices[1:] - line.vertices[:-1]
             setattr(self, direction, GridLine(start=start, end=end,
-                                              vertices=vertices))
+                                              vertices=vertices,
+                                              widths=widths))
 
 
 class GridFaceX(GridBase):
@@ -107,15 +108,17 @@ class GridFaceX(GridBase):
         self.shape = (self.P, self.N, self.M)[-self.ndim:]
         self.size = functools.reduce(operator.mul, self.shape, 1)
         for direction in ['x', 'y', 'z'][:grid.ndim]:
-            gridline = getattr(grid, direction)
-            start, end = gridline.start, gridline.end
-            vertices = gridline.vertices
+            line = getattr(grid, direction)
+            start, end = line.start, line.end
             if direction is 'x':
-                vertices = vertices[1:-1]
+                vertices = line.vertices[1:-1]
+                widths = 0.5 * (line.vertices[2:] - line.vertices[:-2])
             else:
-                vertices = 0.5 * (vertices[:-1] + vertices[1:])
+                vertices = 0.5 * (line.vertices[:-1] + line.vertices[1:])
+                widths = line.vertices[1:] - line.vertices[:-1]
             setattr(self, direction, GridLine(start=start, end=end,
-                                              vertices=vertices))
+                                              vertices=vertices,
+                                              widths=widths))
 
 
 class GridFaceY(GridBase):
@@ -132,15 +135,17 @@ class GridFaceY(GridBase):
         self.shape = (self.P, self.N, self.M)[-self.ndim:]
         self.size = functools.reduce(operator.mul, self.shape, 1)
         for direction in ['x', 'y', 'z'][:grid.ndim]:
-            gridline = getattr(grid, direction)
-            start, end = gridline.start, gridline.end
-            vertices = gridline.vertices
+            line = getattr(grid, direction)
+            start, end = line.start, line.end
             if direction is 'y':
-                vertices = vertices[1:-1]
+                vertices = line.vertices[1:-1]
+                widths = 0.5 * (line.vertices[2:] - line.vertices[:-2])
             else:
-                vertices = 0.5 * (vertices[:-1] + vertices[1:])
+                vertices = 0.5 * (line.vertices[:-1] + line.vertices[1:])
+                widths = line.vertices[1:] - line.vertices[:-1]
             setattr(self, direction, GridLine(start=start, end=end,
-                                              vertices=vertices))
+                                              vertices=vertices,
+                                              widths=widths))
 
 
 class GridFaceZ(GridBase):
@@ -157,21 +162,25 @@ class GridFaceZ(GridBase):
         self.shape = (self.P, self.N, self.M)
         self.size = functools.reduce(operator.mul, self.shape, 1)
         for direction in ['x', 'y', 'z']:
-            gridline = getattr(grid, direction)
-            start, end = gridline.start, gridline.end
-            vertices = gridline.vertices
+            line = getattr(grid, direction)
+            start, end = line.start, line.end
             if direction is 'z':
-                vertices = vertices[1:-1]
+                vertices = line.vertices[1:-1]
+                widths = 0.5 * (line.vertices[2:] - line.vertices[:-2])
             else:
-                vertices = 0.5 * (vertices[:-1] + vertices[1:])
+                vertices = 0.5 * (line.vertices[:-1] + line.vertices[1:])
+                widths = line.vertices[1:] - line.vertices[:-1]
             setattr(self, direction, GridLine(start=start, end=end,
-                                              vertices=vertices))
+                                              vertices=vertices,
+                                              widths=widths))
 
 
 class GridLine():
     """Contain information about a gridline of a structured Cartesian grid."""
 
-    def __init__(self, start=None, end=None, vertices=[], config=None):
+    def __init__(self, start=None, end=None,
+                 vertices=[], widths=[],
+                 config=None):
         """Initialize the gridline.
 
         Parameters
@@ -182,6 +191,7 @@ class GridLine():
         """
         self.start, self.end = start, end
         self.vertices = numpy.array(vertices)
+        self.widths = numpy.array(widths)
         self.size = self.vertices.size
         self.shape = self.vertices.shape
         if config is not None:
@@ -223,11 +233,6 @@ class GridLine():
         self.start, self.end = config['start'], config['end']
         self.size = self.vertices.size
         self.shape = self.vertices.shape
-
-    def get_widths(self):
-        """Compute the grid spacing."""
-        ghosted = numpy.concatenate(([self.start], self.vertices, [self.end]))
-        return 0.5 * (ghosted[2:] - ghosted[:-2])
 
 
 class Segment():
@@ -282,11 +287,10 @@ class Segment():
         r = config.get('stretching', 1.0)
         reverse = config.get('reverse', False)
 
-        if abs(r - 1) < 1e-6:  # uniform discretization
+        if abs(r - 1.0) < 1e-6:  # uniform discretization
             n_float = length / width
             n = int(round(n_float))
-            assert (abs(n - n_float) < 1e-6,
-                    "Length should be multiple of width")
+            assert abs(n - n_float) < 1e-6, "Length should be multiple of width"
             self.vertices = numpy.linspace(start, end, num=n + 1)
         else:  # stretched discretization
             n_float = math.log(1 + length / width * (r - 1)) / math.log(r)

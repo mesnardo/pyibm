@@ -36,18 +36,18 @@ def assemble_GHat(gridc, gridx, gridy, gridz=GridBase()):
     data = numpy.zeros(nnz * size, dtype=numpy.float64)
     # Assemble rows for GridFaceX points.
     offset = 0  # row index offset
-    dx = gridx.x.get_widths()  # grid spacings in x-direction
+    dx = gridx.x.widths  # grid spacings in x-direction
     _kernel(gridx.shape, gridc.shape, offset, 0, dx, _stencil_x,
             rows, cols, data)
     # Assemble rows for GridFaceY points.
     offset += gridx.size  # update offset index
-    dy = gridy.y.get_widths()
+    dy = gridy.y.widths
     _kernel(gridy.shape, gridc.shape, offset, 1, dy, _stencil_y,
             rows, cols, data)
     if ndim == 3:
         # Assemble rows for GridFaceZ points.
         offset += gridy.size  # update offset index
-        dz = gridz.z.get_widths()
+        dz = gridz.z.widths
         _kernel(gridz.shape, gridc.shape, offset, 2, dz, _stencil_z,
                 rows, cols, data)
     GHat = coo_matrix((data, (rows, cols)), shape=(size, gridc.size))

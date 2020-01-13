@@ -34,16 +34,16 @@ def assemble_MHat(gridx, gridy, gridz=GridBase()):
     data = numpy.zeros(nnz * size, dtype=numpy.float64)
     # Assemble rows for GridFaceX points.
     offset = 0  # offset index
-    dx = gridx.x.get_widths()
+    dx = gridx.x.widths
     _kernel_MHat(gridx.shape, offset, 0, dx, rows, cols, data)
     # Assemble rows for GridFaceY points.
     offset += gridx.size  # update offset index
-    dy = gridy.y.get_widths()
+    dy = gridy.y.widths
     _kernel_MHat(gridy.shape, offset, 1, dy, rows, cols, data)
     if ndim == 3:
             # Assemble rows for GridFaceX points.
         offset += gridy.size  # update offset index
-        dz = gridz.z.get_widths()
+        dz = gridz.z.widths
         _kernel_MHat(gridz.shape, offset, 2, dz, rows, cols, data)
     # Assemble operator in COO format.
     MHat = coo_matrix((data, (rows, cols)), shape=(size, size))
@@ -90,19 +90,19 @@ def assemble_R(gridx, gridy, gridz=GridBase()):
     data = numpy.zeros(nnz * size, dtype=numpy.float64)
     # Assemble rows for GridFaceX points.
     offset = 0  # offset index
-    dy = gridx.y.get_widths()
-    dz = numpy.array([1.0]) if ndim == 2 else gridx.z.get_widths()
+    dy = gridx.y.widths
+    dz = numpy.array([1.0]) if ndim == 2 else gridx.z.widths
     _kernel_R(gridx.shape, offset, 0, dy, dz, rows, cols, data)
     # Assemble rows for GridFaceY points.
     offset += gridx.size  # update offset index
-    dx = gridy.x.get_widths()
-    dz = numpy.array([1.0]) if ndim == 2 else gridy.z.get_widths()
+    dx = gridy.x.widths
+    dz = numpy.array([1.0]) if ndim == 2 else gridy.z.widths
     _kernel_R(gridy.shape, offset, 1, dx, dz, rows, cols, data)
     if ndim == 3:
         # Assemble rows for GridFaceZ points.
         offset += gridy.size  # update offset index
-        dx = gridz.x.get_widths()
-        dy = gridz.y.get_widths()
+        dx = gridz.x.widths
+        dy = gridz.y.widths
         _kernel_R(gridz.shape, offset, 2, dx, dy, rows, cols, data)
     # Assemble operator in COO format.
     R = coo_matrix((data, (rows, cols)), shape=(size, size))

@@ -36,21 +36,21 @@ def assemble_DHat(gridc, gridx, gridy, gridz=GridBase()):
     data = numpy.zeros(nnz * gridc.size, dtype=numpy.float64)
     # Assemble rows for GridFaceX points.
     offset = 0  # column index offset
-    dy = gridx.y.get_widths()
-    dz = numpy.array([1.0]) if ndim == 2 else gridx.z.get_widths()
+    dy = gridx.y.widths
+    dz = numpy.array([1.0]) if ndim == 2 else gridx.z.widths
     _kernel(gridc.shape, gridx.shape, offset, 0, dy, dz, _stencil_x,
             rows, cols, data)
     # Assemble rows for GridFaceY points.
     offset += gridx.size  # update offset index
-    dx = gridy.x.get_widths()
-    dz = numpy.array([1.0]) if ndim == 2 else gridy.z.get_widths()
+    dx = gridy.x.widths
+    dz = numpy.array([1.0]) if ndim == 2 else gridy.z.widths
     _kernel(gridc.shape, gridy.shape, offset, 1, dx, dz, _stencil_y,
             rows, cols, data)
     if ndim == 3:
         # Assemble rows for GridFaceZ points.
         offset += gridy.size  # update offset index
-        dx = gridz.x.get_widths()
-        dy = gridz.y.get_widths()
+        dx = gridz.x.widths
+        dy = gridz.y.widths
         _kernel(gridc.shape, gridz.shape, offset, 2, dx, dy, _stencil_z,
                 rows, cols, data)
     # Assemble operator in COO format.
