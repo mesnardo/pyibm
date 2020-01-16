@@ -22,7 +22,7 @@ def assemble_delta(body, gridc, gridx, gridy, gridz=GridBase(),
     X, Y, Z, neighbors = body.x, body.y, body.z, body.neighbors
     # Get cell widths in the uniform region.
     i, j, k = gridc.ijk(neighbors[0])
-    dx, dy = gridc.x.get_widths()[i], gridc.y.get_widths()[j]
+    dx, dy = gridc.x.widths[i], gridc.y.widths[j]
     # Assemble rows.
     if ndim == 2:
         offset, counter = 0, 0
@@ -35,7 +35,7 @@ def assemble_delta(body, gridc, gridx, gridy, gridz=GridBase(),
                                 rows, cols, data)
             offset += grid.size
     elif ndim == 3:
-        dz = gridc.z.get_widths()[k]
+        dz = gridc.z.widths[k]
         offset, counter = 0, 0
         for dof, grid in enumerate([gridx, gridy, gridz]):
             x, y, z = grid.x.vertices, grid.y.vertices, grid.z.vertices

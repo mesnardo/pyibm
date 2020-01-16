@@ -23,8 +23,8 @@ def _convective2d_x(ux, uy, dx, dy, out):
 def convective_x(ux, uy, threads=(16, 16)):
     """Convective terms for the x-velocity component."""
     out = cupy.empty(ux.values.shape)
-    dx = ux.grid.x.get_widths()
-    dy = ux.grid.y.get_widths()
+    dx = ux.grid.x.widths
+    dy = ux.grid.y.widths
     blocks = tuple(math.ceil(s / b) for s, b in zip(ux.shape, threads))
     _convective2d_x[blocks, threads](ux.values, uy.values,
                                      dx, dy, out)
@@ -49,8 +49,8 @@ def _convective2d_y(ux, uy, dx, dy, out):
 def convective_y(ux, uy, threads=(16, 16)):
     """Convective terms for the y-velocity component."""
     out = cupy.empty(uy.values.shape)
-    dx = uy.grid.x.get_widths()
-    dy = uy.grid.y.get_widths()
+    dx = uy.grid.x.widths
+    dy = uy.grid.y.widths
     blocks = tuple(math.ceil(s / b) for s, b in zip(ux.shape, threads))
     _convective2d_y[blocks, threads](ux.values, uy.values,
                                      dx, dy, out)

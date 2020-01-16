@@ -18,8 +18,8 @@ def assemble_LHat(gridx, gridy, gridz=GridBase()):
     data = numpy.zeros(size * nnz, dtype=numpy.float64)
     offset, counter = 0, 0
     for grid in ([gridx, gridy, gridz][:ndim]):
-        dx, dy = grid.x.get_widths(), grid.y.get_widths()
-        dz = numpy.array([1.0]) if ndim == 2 else grid.z.get_widths()
+        dx, dy = grid.x.widths, grid.y.widths
+        dz = numpy.array([1.0]) if ndim == 2 else grid.z.widths
         counter = _kernel(dx, dy, dz, grid.shape, offset, counter,
                           rows, cols, data)
         offset += grid.size
