@@ -1,5 +1,4 @@
 from .body import *
-from .convection import *
 from .delta import *
 from .deltakernels import *
 from .divergence import *

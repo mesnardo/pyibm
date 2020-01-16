@@ -13,7 +13,6 @@ Python Application of the Immersed Boundary Method.
 * Pyyaml (`5.2`)
 * SciPy (`1.3.2`)
 * Numba (`0.46.0`)
-* CuPy (`7.0.0`), binary package for CUDA 10.1
 
 ## Installation
 
