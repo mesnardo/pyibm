@@ -1,0 +1,27 @@
+mesh:
+  x:
+    start: -15.0
+    segments:
+    - end: -1.0
+      width: 0.1
+      stretching: 1.03
+      reverse: True
+    - end: 5.0
+      width: 0.1
+      stretching: 1.0
+    - end: 25.0
+      width: 0.1
+      stretching: 1.01
+  y:
+    start: -10.0
+    segments:
+    - end: -1.0
+      width: 0.1
+      stretching: 1.04
+      reverse: True
+    - end: 1.0
+      width: 0.1
+      stretching: 1.0
+    - end: 10.0
+      width: 0.1
+      stretching: 1.04
