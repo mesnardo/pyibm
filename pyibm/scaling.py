@@ -132,7 +132,7 @@ def _kernel_R(shape, offset, direction, dy, dz, rows, cols, data):
 
 def diagonal_inv(A):
     """Assemble the inverse of the diagonal operator A."""
-    AInv = A.tocsr()
+    AInv = A.tocsr(copy=True)
     AInv.data = 1 / AInv.data
     return AInv
 
