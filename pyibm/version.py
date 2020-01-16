@@ -35,7 +35,7 @@ License
 file "LICENSE" for information on the history of this software,
 terms & conditions for usage, and a DISCLAIMER OF ALL WARRANTIES.
 All trademarks referenced herein are property of their respective holders.
-Copyright (c) 2019, Olivier Mesnard.
+Copyright (c) 2019-2020, Olivier Mesnard.
 """
 
 NAME = 'pyibm'
@@ -55,4 +55,4 @@ MICRO = _version_micro
 VERSION = __version__
 PACKAGES = ['pyibm']
 PACKAGE_DATA = {'pyibm': [os.path.join('styles', '*')]}
-REQUIRES = ['h5py', 'matplotlib', 'numpy', 'pyyaml']
+REQUIRES = ['h5py', 'matplotlib', 'numpy', 'pyyaml', 'scipy', 'numba']
