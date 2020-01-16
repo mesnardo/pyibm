@@ -6,12 +6,14 @@ Python Application of the Immersed Boundary Method.
 
 ## Dependencies
 
-* Python (last tested: `3.6.8`)
+* Python (last tested: `3.6.10`)
 * H5Py (`2.9.0`)
-* Matplotlib (`3.0.2`)
-* NumPy (`1.16.2`)
-* Pyyaml (`3.13`)
-* SciPy (`1.2.1`)
+* Matplotlib (`3.1.1`)
+* NumPy (`1.17.4`)
+* Pyyaml (`5.2`)
+* SciPy (`1.3.2`)
+* Numba (`0.46.0`)
+* CuPy (`7.0.0`), binary package for CUDA 10.1
 
 ## Installation
 
