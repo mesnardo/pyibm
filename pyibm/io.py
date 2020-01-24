@@ -60,6 +60,7 @@ def print_matrix_info(A, name=None):
 
 def plot_matrix(M, figsize=(6.0, 6.0), axis_scaled=True,
                 markersize=1, color='red', cmap=None,
+                vmin=None, vmax=None,
                 limits=[None, None, None, None]):
     """Plot the non-zero elements of a given sparse operator.
 
@@ -79,6 +80,10 @@ def plot_matrix(M, figsize=(6.0, 6.0), axis_scaled=True,
         Colormap used to represent the value of the non-zeros;
         default is `None` (i.e., skip the colormap, use a single color
         for all non-zeros).
+    vmin : float, optional
+        Minimum color value; default is `None` (minimum of data).
+    vmax : float, optional
+        Maximum color value; default is `None` (maximum of data).
     limits : list, optional
         Axis limits to use; default is `[None, None, None, None]`.
 
@@ -100,7 +105,8 @@ def plot_matrix(M, figsize=(6.0, 6.0), axis_scaled=True,
         ax.scatter(M.col, M.row, c=color, s=markersize, marker='s')
     else:
         # Otherwise, use colormap to represent elements.
-        sc = ax.scatter(M.col, M.row, c=M.data, s=markersize, cmap=cmap)
+        sc = ax.scatter(M.col, M.row, c=M.data, s=markersize,
+                        vmin=vmin, vmax=vmax, cmap=cmap)
         fig.colorbar(sc)
     # Scale axis (if required).
     if axis_scaled:
