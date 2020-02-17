@@ -61,7 +61,7 @@ def print_matrix_info(A, name=None):
 def plot_matrix(M, figsize=(6.0, 6.0), axis_scaled=True,
                 markersize=1, color='red', cmap=None,
                 vmin=None, vmax=None,
-                limits=[None, None, None, None]):
+                limits=(None, None, None, None)):
     """Plot the non-zero elements of a given sparse operator.
 
     Parameters
@@ -113,9 +113,8 @@ def plot_matrix(M, figsize=(6.0, 6.0), axis_scaled=True,
         ax.axis('scaled', adjustable='box')
     # Set axis limits (if required).
     default_limits = [0, M.shape[0] - 1, 0, M.shape[1] - 1]
-    for i, lim in enumerate(limits):
-        if lim is None:
-            limits[i] = default_limits[i]
+    limits = [l if l is not None else d
+              for l, d in zip(limits, default_limits)]
     ax.set_xlim(limits[2:])
     ax.set_ylim(limits[:2])
     # Invert y-axis so that first row is at the top of the graph.
